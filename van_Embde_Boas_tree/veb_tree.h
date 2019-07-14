@@ -105,25 +105,9 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 num_bits{num_bits},
                 half_mask{(T(1) << num_bits/2) - 1},
                 clusters{},
-                summary{
-                    std::move(
-                            num_bits > 16 ?
-                            static_cast<std::unique_ptr<veb_tree_node>>(
-                                std::make_unique<veb_tree_node_large>(num_bits/2, cluster_of(item))
-                                ) :
-                            static_cast<std::unique_ptr<veb_tree_node>>(
-                                std::make_unique<veb_tree_node_small>(cluster_of(item))
-                                )
-                            )
-                }
+                summary{}
             {
                 std::cout << "creating " << std::bitset<range>(item) << " into large node of range " << num_bits << std::endl;
-                if(num_bits > 16) {
-                    clusters.emplace(cluster_of(item), std::make_unique<veb_tree_node_large>(num_bits/2, id_of(item)));
-                }
-                else {
-                    clusters.emplace(cluster_of(item), std::make_unique<veb_tree_node_small>(id_of(item)));
-                }
             }
 
             std::optional<T> predicate(T x) const override {
@@ -135,15 +119,20 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                     return combine(c, it->second->predicate(i).value()); 
                 }
                 else {
-                    const T bigger_cluster = summary->predicate(c).value();
-                    return combine(bigger_cluster, clusters.at(bigger_cluster)->maximum);
+                    if(summary) {
+                        const auto bigger_cluster = summary->predicate(c).value();
+                        return combine(bigger_cluster, clusters.at(bigger_cluster)->maximum);
+                    }
+                    else {
+                        return this->minimum;
+                    }
                 }
             }
 
             void insert(T x) override {
                 std::cout << "inserting " << std::bitset<range>(x) << " into large node of range " << num_bits << " min max: " << std::bitset<range>(this->minimum) << ',' << std::bitset<range>(this->maximum) << std::endl;
                 if(x < this->minimum) {
-                    this->minimum = x;
+                    std::swap(this->minimum, x);
                 }
                 else if(x > this->maximum) {
                     this->maximum = x;
@@ -154,22 +143,28 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
 
                 if(auto it = clusters.find(c); it == clusters.end()) {
                     std::cout << "not seen " << std::bitset<range>(x) << " in large node of range " << num_bits << std::endl;
-                    summary->insert(c);
-                    clusters.emplace(
-                            c,
-                            std::move(
-                                num_bits > 16 ?
-                                static_cast<std::unique_ptr<veb_tree_node>&&>(
-                                    std::make_unique<veb_tree_node_large>(num_bits/2, i)
-                                    ) :
-                                static_cast<std::unique_ptr<veb_tree_node>&&>(
-                                    std::make_unique<veb_tree_node_small>(i)
-                                    )
-                                )
-                            );
+
+                    if(!summary) {
+                        if(num_bits > 16) {
+                            summary = std::make_unique<veb_tree_node_large>(num_bits/2, c);
+                        }
+                        else {
+                            summary = std::make_unique<veb_tree_node_small>(c);
+                        }
+                    }
+                    else{
+                        summary->insert(c);
+                    }
+
+                    if(num_bits > 16) {
+                        clusters.emplace(c, std::make_unique<veb_tree_node_large>(num_bits/2, i));
+                    }
+                    else {
+                        clusters.emplace(c, std::make_unique<veb_tree_node_small>(i));
+                    }
                 }
                 else {
-                    clusters.at(c)->insert(i);
+                    it->second->insert(i);
                 }
             }
 
@@ -177,22 +172,30 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 const auto c = cluster_of(x);
                 const auto i = id_of(x);
 
-                if(clusters.find(c) == clusters.end()) return false;
-                else if(this->minimum == this->maximum) {
-                    return true;
-                }
-
-                if(clusters.at(c)->remove(i)) {
-                    clusters.erase(c);
-                    summary->remove(c);
-                }
-
                 if(x == this->minimum) {
-                    this->minimum = clusters.at(summary->minimum)->minimum;
+                    if(this->minimum == this->maximum) return true;
+                    else if(auto it = clusters.find(summary->minimum); it != clusters.end()) {
+                        this->minimum = combine(summary->minimum, it->second->minimum);
+                        if(it->second->remove(it->second->minimum)) {
+                            clusters.erase(it);
+                            if(summary->remove(summary->minimum)) summary.reset();
+                        }
+                    }
                 }
-                else if(x == this->maximum) {
-                    this->maximum = clusters.at(summary->maximum)->maximum;
+                else {
+                    if(auto it = clusters.find(c); it != clusters.end()) {
+                        if(it->second->remove(i)){
+                            clusters.erase(it);
+                            if(summary->remove(c)) summary.reset();
+                        }
+
+                        if(x == this->maximum) {
+                            if(summary) this->maximum = combine(summary->maximum, clusters.at(summary->maximum)->maximum);
+                            else this->maximum = this->minimum;
+                        }
+                    }
                 }
+                
 
                 return false;
             }
