@@ -25,7 +25,7 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
 
             virtual std::optional<T> predicate(T x) const = 0;
             virtual void insert(T x) = 0;
-            // virtual void remove(T x);
+            virtual bool remove(T x) = 0;
 
             virtual ~veb_tree_node() {};
         };
@@ -64,11 +64,31 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 the_node[x] = true;
             }
 
-            /*
-               void remove(T x) override {
-               the_node[x] = false;
-               }
-               */
+            bool remove(T x) override {
+                if(!the_node[x]) return false;
+                else if(this->minimum == this->maximum) return true;
+
+                the_node[x] = false;
+
+                if(x == this->minimum) {
+                    while(x++ < range) {
+                        if(the_node[x]) {
+                            this->minimum = x;
+                            break;
+                        }
+                    }
+                }
+                else if(x == this->maximum) {
+                    while(x-- > 0) {
+                        if(the_node[x]) {
+                            this->maximum = x;
+                            break;
+                        }
+                    }
+                }
+
+                return false;
+            }
 
             ~veb_tree_node_small() {}
         };
@@ -151,6 +171,30 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 else {
                     clusters.at(c)->insert(i);
                 }
+            }
+
+            bool remove(T x) override {
+                const auto c = cluster_of(x);
+                const auto i = id_of(x);
+
+                if(clusters.find(c) == clusters.end()) return false;
+                else if(this->minimum == this->maximum) {
+                    return true;
+                }
+
+                if(clusters.at(c)->remove(i)) {
+                    clusters.erase(c);
+                    summary->remove(c);
+                }
+
+                if(x == this->minimum) {
+                    this->minimum = clusters.at(summary->minimum)->minimum;
+                }
+                else if(x == this->maximum) {
+                    this->maximum = clusters.at(summary->maximum)->maximum;
+                }
+
+                return false;
             }
 
             ~veb_tree_node_large() {}
