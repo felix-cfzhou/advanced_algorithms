@@ -8,7 +8,7 @@ int main() {
 
     for(unsigned int i=1; i<=1<<16; ++i) {
         a.insert(i);
-        std::cout << a.predicate(i+1).value() << std::endl;
-        assert(a.predicate(i+1).value() == i);
+        std::cout << a.predecessor(i+1).value() << std::endl;
+        assert(a.predecessor(i+1).value() == i);
     }
 }

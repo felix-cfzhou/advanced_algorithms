@@ -23,7 +23,7 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 maximum{item}
             {}
 
-            virtual std::optional<T> predicate(T x) const = 0;
+            virtual std::optional<T> predecessor(T x) const = 0;
             virtual void insert(T x) = 0;
             virtual bool remove(T x) = 0;
 
@@ -44,7 +44,7 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 the_node[item] = true;
             }
 
-            std::optional<T> predicate(T x) const override {
+            std::optional<T> predecessor(T x) const override {
                 while(x-- > 0) {
                     if(the_node[x]) return x;
                 }
@@ -110,17 +110,17 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                 std::cout << "creating " << std::bitset<range>(item) << " into large node of range " << num_bits << std::endl;
             }
 
-            std::optional<T> predicate(T x) const override {
+            std::optional<T> predecessor(T x) const override {
                 const auto c = cluster_of(x);
                 const auto i = id_of(x);
 
                 if(x <= this->minimum) return {};
                 else if(auto it = clusters.find(c); it!=clusters.end() && i>it->second->minimum) {
-                    return combine(c, it->second->predicate(i).value()); 
+                    return combine(c, it->second->predecessor(i).value()); 
                 }
                 else {
                     if(summary) {
-                        const auto bigger_cluster = summary->predicate(c).value();
+                        const auto bigger_cluster = summary->predecessor(c).value();
                         return combine(bigger_cluster, clusters.at(bigger_cluster)->maximum);
                     }
                     else {
@@ -195,7 +195,7 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
                         }
                     }
                 }
-                
+
 
                 return false;
             }
@@ -220,8 +220,8 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
         {}
         veb_tree() {}
 
-        std::optional<T> predicate(T x) const {
-            if(the_tree) return the_tree->predicate(x);
+        std::optional<T> predecessor(T x) const {
+            if(the_tree) return the_tree->predecessor(x);
             else return {};
         }
 
