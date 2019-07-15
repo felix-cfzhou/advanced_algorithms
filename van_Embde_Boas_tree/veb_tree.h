@@ -12,7 +12,7 @@
 template<typename T, typename Enable=void> class veb_tree;
 
 template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_v<T> && !std::is_signed_v<T>>::type> {
-    public:
+    private:
         static constexpr size_t range = sizeof(T) * 8;
 
         struct veb_tree_node {
@@ -206,11 +206,34 @@ template<typename T> class veb_tree<T, typename std::enable_if<std::is_integral_
             T cluster_of(T item) const { return item >> num_bits/2; }
             T id_of(T item) const { return item & half_mask; }
             T combine(T c, T i) const { return c << num_bits/2 | i; }
-        } the_tree;
+        };
 
+        std::unique_ptr<veb_tree_node> the_tree;
+
+    public:
         veb_tree(T x):
-            the_tree{range, x}
+            the_tree{
+                range > 16 ?
+                    static_cast<std::unique_ptr<veb_tree_node>>(std::make_unique<veb_tree_node_large>(range, x)) :
+                    static_cast<std::unique_ptr<veb_tree_node>>(std::make_unique<veb_tree_node_small>(x))
+            }
         {}
+        veb_tree() {}
+
+        std::optional<T> predicate(T x) const {
+            if(the_tree) return the_tree->predicate(x);
+            else return {};
+        }
+
+        void insert(T x) {
+            if(the_tree) the_tree->insert(x);
+            else if(range > 16) the_tree = std::make_unique<veb_tree_node_large>(range, x);
+            else the_tree = std::make_unique<veb_tree_node_small>(x);
+        }
+
+        void remove(T x) {
+            if(the_tree && the_tree->remove(x)) the_tree.reset();
+        }
 };
 
 #endif
