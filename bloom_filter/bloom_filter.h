@@ -28,13 +28,13 @@ template<
 
     void insert(const T& key) {
         for(size_t k=0; k<num_filters; ++k) {
-            the_filters.at(k)[multiplicative_hash(key, k)] = true;
+            the_filters.at(k).set(multiplicative_hash(key, k));
         }
     }
 
     bool contains(const T& key) const {
         for(size_t k=0; k<num_filters; ++k) {
-            if(!(the_filters.at(k)[multiplicative_hash(key, k)])) return false;
+            if(!the_filters.at(k).test(multiplicative_hash(key, k))) return false;
         }
 
         return true;

@@ -17,5 +17,6 @@ int main() {
         filter.insert(k);
         assert(filter.contains(k));
         assert(filter.contains(0));
+        std::cout << "inserting " << std::bitset<64>(k) << std::endl;
     }
 }
