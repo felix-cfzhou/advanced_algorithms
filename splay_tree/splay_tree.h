@@ -248,6 +248,40 @@ template<typename K, typename V, typename Comparator=std::less<K>> class splay_t
         }
     }
 
+    void erase(const K &key) {
+        if(!the_tree) return;
+
+        splay(key);
+
+        if(key == the_tree->key) {
+            splay_tree_node *right_child = the_tree->right_child;
+            splay_tree_node *left_child = the_tree->left_child;
+
+            the_tree->right_child = nullptr;
+            the_tree->left_child = nullptr;
+            delete the_tree;
+
+            if(left_child) {
+                left_child->parent = nullptr;
+
+                the_tree = left_child;
+
+                splay_tree_node *biggest = left_child;
+                while(biggest->right_child) biggest = biggest->right_child;
+                splay(biggest);
+
+                the_tree->right_child = right_child;
+                if(right_child) right_child->parent = the_tree;
+            }
+            else {
+                the_tree = right_child;
+                if(right_child) right_child->parent = nullptr;
+
+                return;
+            }
+        }
+    }
+
     void print() const { if(the_tree) the_tree->print(); }
 
     ~splay_tree() { delete the_tree; }
